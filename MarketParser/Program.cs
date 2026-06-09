@@ -31,6 +31,7 @@ const string NoPriceText = "\u0426\u0435\u043d\u0430 \u043d\u0435 \u0443\u043a\u
 const string QueryPromptText = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043f\u043e\u0438\u0441\u043a\u043e\u0432\u044b\u0439 \u0437\u0430\u043f\u0440\u043e\u0441: ";
 const string QueryMissingText = "\u041f\u043e\u0438\u0441\u043a\u043e\u0432\u044b\u0439 \u0437\u0430\u043f\u0440\u043e\u0441 \u043d\u0435 \u0437\u0430\u0434\u0430\u043d.";
 const string SearchReturnedNoProductsText = "\u041f\u043e\u0438\u0441\u043a \u043d\u0435 \u0432\u0435\u0440\u043d\u0443\u043b \u0442\u043e\u0432\u0430\u0440\u044b \u0434\u043b\u044f \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0438.";
+const string ConfigureFiltersPromptText = "\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u0442\u0435 \u0444\u0438\u043b\u044c\u0442\u0440\u044b \u0432 \u043e\u0442\u043a\u0440\u044b\u0442\u043e\u043c \u043e\u043a\u043d\u0435 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430, \u0437\u0430\u0442\u0435\u043c \u043d\u0430\u0436\u043c\u0438\u0442\u0435 Enter \u0432 \u043a\u043e\u043d\u0441\u043e\u043b\u0438 \u0434\u043b\u044f \u043d\u0430\u0447\u0430\u043b\u0430 \u0441\u0431\u043e\u0440\u0430 \u0434\u0430\u043d\u043d\u044b\u0445...";
 const string LoadingDetailsText = "\u041d\u0430\u0447\u0438\u043d\u0430\u044e \u0441\u0431\u043e\u0440 \u0434\u0435\u0442\u0430\u043b\u044c\u043d\u043e\u0439 \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u0438 \u043f\u043e \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0430\u043c...";
 const string CouldNotProcessText = "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c \u0442\u043e\u0432\u0430\u0440";
 const string ProcessedProductsText = "\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043e \u0442\u043e\u0432\u0430\u0440\u043e\u0432";
@@ -189,19 +190,13 @@ try
 {
     driver.Navigate().GoToUrl(searchUrl);
 
-    wait.Until(drv =>
-    {
-        try
-        {
-            ClosePopupsIfAny(drv);
-            return drv.FindElements(By.XPath(SearchResultsXPath)).Count > 0 &&
-                   drv.FindElements(By.XPath(ProductCardXPath)).Count > 0;
-        }
-        catch
-        {
-            return false;
-        }
-    });
+    wait.Until(IsSearchResultsLoaded);
+
+    Console.WriteLine();
+    Console.WriteLine(ConfigureFiltersPromptText);
+    Console.ReadLine();
+
+    wait.Until(IsSearchResultsLoaded);
 
     ScrollUntilAllProductsLoaded(driver, js);
 
@@ -253,6 +248,20 @@ catch (WebDriverTimeoutException)
 catch (Exception ex)
 {
     Console.WriteLine($"{GenericErrorPrefix}: {ex.Message}");
+}
+
+static bool IsSearchResultsLoaded(IWebDriver drv)
+{
+    try
+    {
+        ClosePopupsIfAny(drv);
+        return drv.FindElements(By.XPath(SearchResultsXPath)).Count > 0 &&
+               drv.FindElements(By.XPath(ProductCardXPath)).Count > 0;
+    }
+    catch
+    {
+        return false;
+    }
 }
 
 static string ReadSearchQuery()
@@ -1353,6 +1362,9 @@ static string CreateExcelReport(string query, IReadOnlyCollection<ProductDetails
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
         .ToList();
+    var sellerLegalColumnGroupCount = Math.Max(
+        1,
+        products.Select(GetSellerLegalColumnGroupCount).DefaultIfEmpty(0).Max());
 
     var headers = new List<string>
     {
@@ -1363,13 +1375,12 @@ static string CreateExcelReport(string query, IReadOnlyCollection<ProductDetails
         "\u041e\u043f\u0438\u0441\u0430\u043d\u0438\u0435",
         "\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430",
         "\u0421\u0441\u044b\u043b\u043a\u0430 \u043d\u0430 \u043c\u0430\u0433\u0430\u0437\u0438\u043d",
-        "\u042e\u0440. \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u043f\u0440\u043e\u0434\u0430\u0432\u0446\u0430",
-        InnLabel,
-        "\u041e\u0413\u0420\u041d/\u041e\u0413\u0420\u041d\u0418\u041f",
         "\u041f\u043e\u0438\u0441\u043a\u043e\u0432\u044b\u0439 \u0437\u0430\u043f\u0440\u043e\u0441",
         "\u0417\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u044b \u0442\u043e\u0432\u0430\u0440\u0430",
         "\u041e\u0448\u0438\u0431\u043a\u0430 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0438"
     };
+
+    headers.InsertRange(7, BuildSellerLegalHeaders(sellerLegalColumnGroupCount));
 
     headers.AddRange(specColumns);
 
@@ -1385,13 +1396,12 @@ static string CreateExcelReport(string query, IReadOnlyCollection<ProductDetails
                 SanitizeForExcel(product.Description),
                 SanitizeForExcel(product.SellerName),
                 SanitizeForExcel(product.SellerUrl),
-                SanitizeForExcel(product.SellerLegalName),
-                SanitizeForExcel(product.SellerInn),
-                SanitizeForExcel(product.SellerOgrn),
                 SanitizeForExcel(product.Query),
                 SanitizeForExcel(product.ProductPageTitle),
                 SanitizeForExcel(product.ErrorMessage)
             };
+
+            rowValues.InsertRange(7, BuildSellerLegalRowValues(product, sellerLegalColumnGroupCount));
 
             for (int i = 0; i < specColumns.Count; i++)
             {
@@ -1412,6 +1422,59 @@ static string CreateExcelReport(string query, IReadOnlyCollection<ProductDetails
 
     File.Move(tempPath, outputPath);
     return outputPath;
+}
+
+static int GetSellerLegalColumnGroupCount(ProductDetails product)
+{
+    return new[]
+    {
+        SplitSellerLegalValues(product.SellerLegalName).Count,
+        SplitSellerLegalValues(product.SellerInn).Count,
+        SplitSellerLegalValues(product.SellerOgrn).Count
+    }.Max();
+}
+
+static List<string> BuildSellerLegalHeaders(int sellerLegalColumnGroupCount)
+{
+    var headers = new List<string>(sellerLegalColumnGroupCount * 3);
+
+    for (var index = 1; index <= sellerLegalColumnGroupCount; index++)
+    {
+        headers.Add($"\u042e\u0440 \u043b\u0438\u0446\u043e {index}");
+        headers.Add($"{InnLabel} {index}");
+        headers.Add($"\u041e\u0413\u0420\u041d/\u041e\u0413\u0420\u041d\u0418\u041f {index}");
+    }
+
+    return headers;
+}
+
+static List<string> BuildSellerLegalRowValues(ProductDetails product, int sellerLegalColumnGroupCount)
+{
+    var legalNames = SplitSellerLegalValues(product.SellerLegalName);
+    var inns = SplitSellerLegalValues(product.SellerInn);
+    var ogrns = SplitSellerLegalValues(product.SellerOgrn);
+
+    var rowValues = new List<string>(sellerLegalColumnGroupCount * 3);
+
+    for (var index = 0; index < sellerLegalColumnGroupCount; index++)
+    {
+        rowValues.Add(index < legalNames.Count ? SanitizeForExcel(legalNames[index]) : string.Empty);
+        rowValues.Add(index < inns.Count ? SanitizeForExcel(inns[index]) : string.Empty);
+        rowValues.Add(index < ogrns.Count ? SanitizeForExcel(ogrns[index]) : string.Empty);
+    }
+
+    return rowValues;
+}
+
+static List<string> SplitSellerLegalValues(string value)
+{
+    if (string.IsNullOrWhiteSpace(value))
+        return new List<string>();
+
+    return value
+        .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(item => !string.IsNullOrWhiteSpace(item))
+        .ToList();
 }
 
 static string NormalizeUrl(string url)
